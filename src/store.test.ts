@@ -1,8 +1,7 @@
 import { test, expect, describe, beforeEach, afterEach } from "bun:test";
 import { existsSync, mkdtempSync, rmSync, writeFileSync, unlinkSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
-import { loadTodos, nextId, type Todo } from "./store";
+import { loadTodos, saveTodos, nextId, type Todo } from "./store";
 
 const DB_PATH = join(import.meta.dir, "..", "todos.json");
 const CWD = join(import.meta.dir, "..");
@@ -15,14 +14,38 @@ function seedDb(todos: Todo[]) {
   writeFileSync(DB_PATH, JSON.stringify(todos, null, 2) + "\n");
 }
 
-test("loadTodos() returns [] when todos.json is absent", () => {
-  const dir = mkdtempSync(join(tmpdir(), "store-test-"));
-  try {
-    const result = loadTodos(join(dir, "nonexistent.json"));
-    expect(result).toEqual([]);
-  } finally {
-    rmSync(dir, { recursive: true });
-  }
+describe("loadTodos", () => {
+  beforeEach(cleanDb);
+  afterEach(cleanDb);
+
+  test("returns [] when todos.json does not exist (ENOENT)", () => {
+    expect(loadTodos()).toEqual([]);
+  });
+
+  test("returns [] when todos.json is empty", () => {
+    writeFileSync(DB_PATH, "");
+    expect(loadTodos()).toEqual([]);
+  });
+
+  test("returns parsed todos from an existing file", () => {
+    const todos: Todo[] = [{ id: 1, text: "hello" }];
+    writeFileSync(DB_PATH, JSON.stringify(todos));
+    expect(loadTodos()).toEqual(todos);
+  });
+});
+
+describe("saveTodos / loadTodos round-trip", () => {
+  beforeEach(cleanDb);
+  afterEach(cleanDb);
+
+  test("save then load returns the same data", () => {
+    const todos: Todo[] = [
+      { id: 1, text: "buy milk" },
+      { id: 2, text: "walk dog" },
+    ];
+    saveTodos(todos);
+    expect(loadTodos()).toEqual(todos);
+  });
 });
 
 describe("nextId", () => {
