@@ -1,6 +1,7 @@
 import { test, expect, describe, beforeEach, afterEach } from "bun:test";
-import { existsSync, writeFileSync, unlinkSync } from "fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync, unlinkSync } from "fs";
 import { join } from "path";
+import { tmpdir } from "os";
 import { loadTodos, nextId, type Todo } from "./store";
 
 const DB_PATH = join(import.meta.dir, "..", "todos.json");
@@ -13,6 +14,16 @@ function cleanDb() {
 function seedDb(todos: Todo[]) {
   writeFileSync(DB_PATH, JSON.stringify(todos, null, 2) + "\n");
 }
+
+test("loadTodos() returns [] when todos.json is absent", () => {
+  const dir = mkdtempSync(join(tmpdir(), "store-test-"));
+  try {
+    const result = loadTodos(join(dir, "nonexistent.json"));
+    expect(result).toEqual([]);
+  } finally {
+    rmSync(dir, { recursive: true });
+  }
+});
 
 describe("nextId", () => {
   test("returns 1 when no todos exist", () => {
