@@ -1,0 +1,12 @@
+{
+  "name": "plover-swe-1778908109-83018",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
