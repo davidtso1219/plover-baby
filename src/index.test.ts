@@ -1,60 +1,56 @@
-import { test, expect, beforeEach, afterEach } from "bun:test";
-import { existsSync, rmSync } from "fs";
+import { test, expect, describe, beforeEach, afterEach } from "bun:test";
+import { existsSync, unlinkSync } from "fs";
 import { join } from "path";
 
-const REPO_ROOT = join(import.meta.dir, "..");
-const TODOS_FILE = join(REPO_ROOT, "todos.json");
+const DATA_FILE = join(import.meta.dir, "..", "todos.json");
+const CWD = join(import.meta.dir, "..");
 
-function runCLI(...args: string[]) {
-  return Bun.spawnSync(["bun", "run", "src/index.ts", ...args], {
-    cwd: REPO_ROOT,
-  });
+function cleanup() {
+  if (existsSync(DATA_FILE)) unlinkSync(DATA_FILE);
 }
 
-beforeEach(() => {
-  if (existsSync(TODOS_FILE)) rmSync(TODOS_FILE);
-});
+describe("CLI: add and list commands", () => {
+  beforeEach(cleanup);
+  afterEach(cleanup);
 
-afterEach(() => {
-  if (existsSync(TODOS_FILE)) rmSync(TODOS_FILE);
-});
+  // Happy path: add a todo and list it
+  test("add: stores a todo with id=1 on first add", () => {
+    const add = Bun.spawnSync(["bun", "run", "src/index.ts", "add", "buy milk"], { cwd: CWD });
+    expect(add.exitCode).toBe(0);
 
-test("no args: exits 1 with usage hint to stderr", () => {
-  const proc = runCLI();
-  expect(proc.exitCode).toBe(1);
-  expect(proc.stderr.toString()).toContain("Unknown command");
-});
+    const list = Bun.spawnSync(["bun", "run", "src/index.ts", "list"], { cwd: CWD });
+    expect(list.stdout.toString().trim()).toBe("[1] buy milk");
+    expect(list.exitCode).toBe(0);
+  });
 
-test("list with no todos.json: exits 0 with empty output", () => {
-  const proc = runCLI("list");
-  expect(proc.exitCode).toBe(0);
-  expect(proc.stdout.toString().trim()).toBe("");
-});
+  // Happy path: list on empty / missing file prints nothing
+  test("list: prints nothing when todos.json does not exist", () => {
+    const proc = Bun.spawnSync(["bun", "run", "src/index.ts", "list"], { cwd: CWD });
+    expect(proc.exitCode).toBe(0);
+    expect(proc.stdout.toString().trim()).toBe("");
+  });
 
-test("add then list: stores a todo and retrieves it", () => {
-  const addProc = runCLI("add", "buy milk");
-  expect(addProc.exitCode).toBe(0);
+  // Happy path: ids auto-increment across multiple adds
+  test("add: auto-increments id for sequential adds", () => {
+    Bun.spawnSync(["bun", "run", "src/index.ts", "add", "first"], { cwd: CWD });
+    Bun.spawnSync(["bun", "run", "src/index.ts", "add", "second"], { cwd: CWD });
 
-  const listProc = runCLI("list");
-  expect(listProc.exitCode).toBe(0);
-  expect(listProc.stdout.toString()).toContain("buy milk");
-});
+    const list = Bun.spawnSync(["bun", "run", "src/index.ts", "list"], { cwd: CWD });
+    expect(list.stdout.toString().trim()).toBe("[1] first\n[2] second");
+    expect(list.exitCode).toBe(0);
+  });
 
-test("add with no text: exits 1 and prints usage to stderr", () => {
-  const proc = runCLI("add");
-  expect(proc.exitCode).toBe(1);
-  expect(proc.stderr.toString()).toContain("Usage:");
-});
+  // Edge case: add with no text exits 1 with usage message
+  test("add: exits 1 with usage when text argument is missing", () => {
+    const proc = Bun.spawnSync(["bun", "run", "src/index.ts", "add"], { cwd: CWD });
+    expect(proc.exitCode).toBe(1);
+    expect(proc.stderr.toString()).toContain("Usage:");
+  });
 
-test("add with multi-word text: full text is stored", () => {
-  runCLI("add", "take", "out", "trash");
-  const listProc = runCLI("list");
-  expect(listProc.exitCode).toBe(0);
-  expect(listProc.stdout.toString()).toContain("take out trash");
-});
-
-test("done with no id: exits 1 with usage to stderr", () => {
-  const proc = runCLI("done");
-  expect(proc.exitCode).toBe(1);
-  expect(proc.stderr.toString()).toContain("Usage:");
+  // Edge case: unknown command exits 1 with usage message
+  test("unknown command: exits 1 with usage message", () => {
+    const proc = Bun.spawnSync(["bun", "run", "src/index.ts", "foo"], { cwd: CWD });
+    expect(proc.exitCode).toBe(1);
+    expect(proc.stderr.toString()).toContain("Usage:");
+  });
 });

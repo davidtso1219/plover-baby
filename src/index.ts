@@ -38,7 +38,7 @@ switch (command) {
     break;
   }
   default: {
-    process.stderr.write("Unknown command. Use: add, list, done\n");
+    process.stderr.write("Usage: add | list | done\n");
     process.exit(1);
   }
 }
