@@ -37,8 +37,13 @@ switch (command) {
     saveTodos(todos);
     break;
   }
+  case "count": {
+    const todos = loadTodos();
+    process.stdout.write(`${todos.length}\n`);
+    break;
+  }
   default: {
-    process.stderr.write("Usage: add | list | done\n");
+    process.stderr.write("Usage: add | list | done | count\n");
     process.exit(1);
   }
 }
